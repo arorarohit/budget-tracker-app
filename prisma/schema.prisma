@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  type         String        @default("current") // "current" | "savings" | "credit_card"
+  institution  String        @default("")
+  householdId  String?
+  household    Household?     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+
+  @@index([householdId])
+}
+
+model Category {
+  id           String         @id @default(cuid())
+  name         String         @unique
+  type         String         @default("expense") // "expense" | "income" | "transfer"
+  color        String         @default("#64748b")
+  icon         String         @default("🏷️")
+  householdId  String?
+  household    Household?     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budget       Budget?
+  rules        CategoryRule[]
+
+  @@index([householdId])
+}
+
+model Transaction {
+  id             String    @id @default(cuid())
+  date           DateTime
+  description    String // raw description from the bank statement
+  merchant       String? // normalised, human-friendly merchant / display name
+  amountPence    Int // ALWAYS negative = money out, positive = money in (normalised at import)
+  source         String    @default("manual") // bank preset name or "manual"
+  importHash     String?   @unique // "<contentHash>:<dupSeq>" — content-based dedupe key
+  notes          String?
+  categorySource String    @default("none") // "none" | "builtin" | "rule" | "manual"
+  categoryId     String?
+  category       Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  accountId      String?
+  account        Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  householdId    String?
+  household      Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+
+  @@index([date])
+  @@index([categoryId])
+  @@index([accountId])
+  @@index([householdId])
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  categoryId  String   @unique
+  householdId String?
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  household   Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  amountPence Int // recurring monthly budget for the category (applies to all months)
+
+  @@unique([householdId, categoryId])
+  @@index([householdId])
+}
+
+model CategoryRule {
+  id         String        @id @default(cuid())
+  pattern    String        @unique // UPPERCASE substring matched against normalised description
+  categoryId String
+  householdId String?
+  category   Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  household  Household?    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@index([householdId])
+}
+
+model Household {
+  id          String            @id @default(cuid())
+  name        String
+  createdAt   DateTime          @default(now())
+  members     HouseholdMember[]
+  accounts    Account[]
+  categories  Category[]
+  transactions Transaction[]
+  budgets     Budget[]
+  rules       CategoryRule[]
+}
+
+model HouseholdMember {
+  id          String   @id @default(cuid())
+  householdId String
+  userId      String
+  email       String
+  role        String   @default("member") // "owner" | "admin" | "member"
+  createdAt   DateTime @default(now())
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+  @@unique([householdId, email])
+  @@index([userId])
+}

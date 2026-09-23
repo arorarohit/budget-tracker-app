@@ -1,0 +1,17 @@
+Transaction ID,Date,Time,Type,Name,Emoji,Category,Amount,Currency,Local amount,Local currency,Notes and #tags,Address,Receipt,Description,Category split,Money Out,Money In
+tx_0000A1,01/04/2026,08:14:22,Card payment,Greggs,🥐,Eating out,-3.40,GBP,-3.40,GBP,,High Street Leeds,,GREGGS LEEDS,,3.40,
+tx_0000A2,01/04/2026,09:02:10,Card payment,TfL Travel Charge,🚇,Transport,-5.50,GBP,-5.50,GBP,,London,,TFL TRAVEL CH,,5.50,
+tx_0000A3,03/04/2026,12:31:55,Card payment,Tesco,🛒,Groceries,-42.17,GBP,-42.17,GBP,Weekly shop,Tesco Express,,TESCO STORES 2345,,42.17,
+tx_0000A4,05/04/2026,00:00:01,Faster payment,Acme Payroll,💰,Income,2450.00,GBP,2450.00,GBP,April salary,,,ACME PAYROLL SALARY,,,2450.00
+tx_0000A5,07/04/2026,19:45:30,Card payment,Netflix,🎬,Entertainment,-10.99,GBP,-10.99,GBP,,,,NETFLIX.COM,,10.99,
+tx_0000A6,10/04/2026,07:55:12,Pot transfer,Savings,🐷,Savings,-200.00,GBP,-200.00,GBP,,,,POT TRANSFER SAVINGS,,200.00,
+tx_0000A7,12/04/2026,13:20:00,Card payment,Pret A Manger,🥪,Eating out,-7.85,GBP,-7.85,GBP,,Kings Cross,,PRET A MANGER,,7.85,
+tx_0000A8,15/04/2026,16:10:44,Card payment,Amazon,📦,Shopping,-23.49,GBP,-23.49,GBP,,,,AMAZON.CO.UK,,23.49,
+tx_0000A9,18/04/2026,11:05:09,Card payment,Boots,💊,Health,-12.30,GBP,-12.30,GBP,,Oxford Street,,BOOTS 1123,,12.30,
+tx_0000B1,22/04/2026,20:30:18,Card payment,Spotify,🎵,Entertainment,-11.99,GBP,-11.99,GBP,,,,SPOTIFY UK,,11.99,
+tx_0000B2,25/04/2026,18:00:00,Direct Debit,British Gas,🔥,Bills,-78.40,GBP,-78.40,GBP,Energy,,,BRITISH GAS,,78.40,
+tx_0000B3,28/04/2026,09:45:21,Card payment,Sainsburys,🛒,Groceries,-31.62,GBP,-31.62,GBP,,Sainsburys Local,,SAINSBURYS SMKT,,31.62,
+tx_0000B4,02/05/2026,14:22:33,Card payment,Costa Coffee,☕,Eating out,-4.10,GBP,-4.10,GBP,,,,COSTA COFFEE 552,,4.10,
+tx_0000B5,06/05/2026,10:15:00,Faster payment,John Smith,🤝,Transfers,50.00,GBP,50.00,GBP,Dinner repayment,,,FROM J SMITH,,,50.00
+tx_0000B6,11/05/2026,21:05:47,Card payment,Uber,🚗,Transport,-14.20,GBP,-14.20,GBP,,,,UBER TRIP HELP.UBER,,14.20,
+tx_0000B7,16/05/2026,08:30:12,Card payment,Greggs,🥐,Eating out,-2.95,GBP,-2.95,GBP,,Manchester,,GREGGS MANCHESTER,,2.95,
