@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuthenticatedUser } from "@/lib/supabase/server";
+import { withRlsUser } from "@/lib/auth/household";
 
 export const dynamic = "force-dynamic";
 
@@ -55,21 +56,23 @@ export async function GET(): Promise<NextResponse> {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const membership = await prisma.householdMember.findFirst({
-      where: { userId: user.id },
-      include: { household: true },
-    });
-    if (!membership) {
-      return NextResponse.json({ household: null });
-    }
+    return await withRlsUser(user.id, async (tx) => {
+      const membership = await tx.householdMember.findFirst({
+        where: { userId: user.id },
+        include: { household: true },
+      });
+      if (!membership) {
+        return NextResponse.json({ household: null });
+      }
 
-    return NextResponse.json({
-      household: membership.household,
-      membership: {
-        id: membership.id,
-        email: membership.email,
-        role: membership.role,
-      },
+      return NextResponse.json({
+        household: membership.household,
+        membership: {
+          id: membership.id,
+          email: membership.email,
+          role: membership.role,
+        },
+      });
     });
   } catch (error) {
     console.error("GET /api/household", error);

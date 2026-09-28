@@ -13,3 +13,4 @@ prisma/dev.db-journal
 eng.traineddata
 samples/*.pdf
 samples/*.png
+migration/*.json

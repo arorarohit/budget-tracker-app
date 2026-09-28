@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import { buildImportHash, contentHash } from "@/lib/import-hash";
 import type { CommitRequest, CommitResponse } from "@/lib/types";
 
@@ -7,6 +8,12 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request): Promise<NextResponse> {
   try {
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
     const body = (await req.json()) as CommitRequest;
 
     if (typeof body.accountId !== "string" || body.accountId === "") {
@@ -22,10 +29,10 @@ export async function POST(req: Request): Promise<NextResponse> {
       );
     }
 
-    const account = await prisma.account.findUnique({
+    const account = await tx.account.findUnique({
       where: { id: body.accountId },
     });
-    if (!account) {
+    if (!account || account.householdId !== householdId) {
       return NextResponse.json(
         { error: "Account not found" },
         { status: 404 }
@@ -44,8 +51,8 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
     const categories =
       wantedNames.length > 0
-        ? await prisma.category.findMany({
-            where: { name: { in: wantedNames } },
+        ? await tx.category.findMany({
+            where: { name: { in: wantedNames }, householdId },
             select: { id: true, name: true },
           })
         : [];
@@ -73,8 +80,8 @@ export async function POST(req: Request): Promise<NextResponse> {
     const existingCounts = new Map<string, number>();
     await Promise.all(
       Array.from(groups.keys()).map(async (h) => {
-        const count = await prisma.transaction.count({
-          where: { importHash: { startsWith: `${h}:` } },
+        const count = await tx.transaction.count({
+          where: { importHash: { startsWith: `${h}:` }, householdId },
         });
         existingCounts.set(h, count);
       })
@@ -93,6 +100,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       categoryId: string | null;
       categorySource: string;
       accountId: string;
+      householdId: string;
     };
     const toInsert: InsertData[] = [];
 
@@ -121,20 +129,20 @@ export async function POST(req: Request): Promise<NextResponse> {
           categoryId,
           categorySource,
           accountId: account.id,
+          householdId,
         });
       }
     }
 
     if (toInsert.length > 0) {
       // Strictly insert-only.
-      await prisma.$transaction(
-        toInsert.map((data) => prisma.transaction.create({ data }))
-      );
+      await Promise.all(toInsert.map((data) => tx.transaction.create({ data })));
       inserted = toInsert.length;
     }
 
     const response: CommitResponse = { inserted, skippedDuplicates };
     return NextResponse.json(response);
+    });
   } catch (err) {
     console.error("POST /api/import/commit", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

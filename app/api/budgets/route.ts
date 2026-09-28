@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import type { BudgetDTO, SetBudgetsRequest } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-async function listBudgets(): Promise<BudgetDTO[]> {
-  const budgets = await prisma.budget.findMany({
+async function listBudgets(tx: Prisma.TransactionClient, householdId: string): Promise<BudgetDTO[]> {
+  const budgets = await tx.budget.findMany({
+    where: { householdId },
     include: { category: true },
   });
   return budgets
@@ -21,7 +23,13 @@ async function listBudgets(): Promise<BudgetDTO[]> {
 
 export async function GET(): Promise<NextResponse> {
   try {
-    return NextResponse.json(await listBudgets());
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    return await withRlsUser(context.userId, async (tx) =>
+      NextResponse.json(await listBudgets(tx, context.membership.householdId))
+    );
   } catch (err) {
     console.error("GET /api/budgets", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
@@ -30,6 +38,12 @@ export async function GET(): Promise<NextResponse> {
 
 export async function PUT(req: Request): Promise<NextResponse> {
   try {
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
     const body = (await req.json()) as SetBudgetsRequest;
     if (!body || !Array.isArray(body.budgets)) {
       return NextResponse.json(
@@ -61,8 +75,8 @@ export async function PUT(req: Request): Promise<NextResponse> {
     }
 
     const ids = Array.from(new Set(body.budgets.map((b) => b.categoryId)));
-    const found = await prisma.category.findMany({
-      where: { id: { in: ids } },
+    const found = await tx.category.findMany({
+      where: { id: { in: ids }, householdId },
       select: { id: true },
     });
     const foundIds = new Set(found.map((c) => c.id));
@@ -74,17 +88,18 @@ export async function PUT(req: Request): Promise<NextResponse> {
       );
     }
 
-    await prisma.$transaction(
+    await Promise.all(
       body.budgets.map((entry) => {
         if (entry.amountPence === null) {
-          return prisma.budget.deleteMany({
-            where: { categoryId: entry.categoryId },
+          return tx.budget.deleteMany({
+            where: { categoryId: entry.categoryId, householdId },
           });
         }
-        return prisma.budget.upsert({
+        return tx.budget.upsert({
           where: { categoryId: entry.categoryId },
           create: {
             categoryId: entry.categoryId,
+            householdId,
             amountPence: entry.amountPence,
           },
           update: { amountPence: entry.amountPence },
@@ -92,7 +107,8 @@ export async function PUT(req: Request): Promise<NextResponse> {
       })
     );
 
-    return NextResponse.json(await listBudgets());
+    return NextResponse.json(await listBudgets(tx, householdId));
+    });
   } catch (err) {
     console.error("PUT /api/budgets", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import { parseCsv } from "@/lib/parsers";
 import { parsePdfBuffer } from "@/lib/parsers/pdf";
 import { categorize, displayMerchant } from "@/lib/categorize";
@@ -17,6 +18,11 @@ const VALID_ACCOUNT_TYPES = ["current", "savings", "credit_card"];
 
 export async function POST(req: Request): Promise<NextResponse> {
   try {
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
     const contentType = req.headers.get("content-type") || "";
     let csvText = "";
     let accountName = "";
@@ -78,10 +84,13 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
 
     // Upsert the account by name; only set the type when creating.
-    const account = await prisma.account.upsert({
-      where: { name: accountName.trim() },
-      create: { name: accountName.trim(), type: accountType },
-      update: {},
+    const account = await withRlsUser(context.userId, async (tx) => {
+      const existing = await tx.account.findFirst({
+        where: { name: accountName.trim(), householdId },
+      });
+      return existing ?? tx.account.create({
+        data: { name: accountName.trim(), type: accountType, householdId },
+      });
     });
 
     let rawRows: Array<{ date: string; description: string; amountPence: number }> = [];
@@ -111,9 +120,12 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
 
     // Load user rules once (with category names) for categorisation.
-    const dbRules = await prisma.categoryRule.findMany({
-      include: { category: { select: { name: true } } },
-    });
+    const dbRules = await withRlsUser(context.userId, (tx) =>
+      tx.categoryRule.findMany({
+        where: { householdId },
+        include: { category: { select: { name: true } } },
+      })
+    );
     const userRules: UserRule[] = dbRules.map((r) => ({
       pattern: r.pattern,
       categoryName: r.category.name,
@@ -134,9 +146,11 @@ export async function POST(req: Request): Promise<NextResponse> {
     const existingCounts = new Map<string, number>();
     await Promise.all(
       Array.from(groups.keys()).map(async (h) => {
-        const count = await prisma.transaction.count({
-          where: { importHash: { startsWith: `${h}:` } },
-        });
+        const count = await withRlsUser(context.userId, (tx) =>
+          tx.transaction.count({
+            where: { importHash: { startsWith: `${h}:` }, householdId },
+          })
+        );
         existingCounts.set(h, count);
       })
     );

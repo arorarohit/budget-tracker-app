@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import type {
   BudgetProgress,
   CategorySpend,
@@ -41,6 +42,12 @@ type TxnWithCategory = Prisma.TransactionGetPayload<{
 
 export async function GET(req: Request): Promise<NextResponse> {
   try {
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
     const { searchParams } = new URL(req.url);
     const monthParam = searchParams.get("month");
     const month = monthParam && monthParam !== "" ? monthParam : currentMonth();
@@ -55,8 +62,8 @@ export async function GET(req: Request): Promise<NextResponse> {
     const monthEnd = new Date(Date.UTC(year, mon, 1));
 
     // ---- Selected month transactions (non-deleted = all; no soft delete) ----
-    const monthTxns: TxnWithCategory[] = await prisma.transaction.findMany({
-      where: { date: { gte: monthStart, lt: monthEnd } },
+    const monthTxns: TxnWithCategory[] = await tx.transaction.findMany({
+      where: { householdId, date: { gte: monthStart, lt: monthEnd } },
       include: { category: true },
     });
 
@@ -121,7 +128,8 @@ export async function GET(req: Request): Promise<NextResponse> {
     const netPence = totalIncomePence - totalSpendPence;
 
     // ---- Budgets: every Budget joined with its category ----
-    const dbBudgets = await prisma.budget.findMany({
+    const dbBudgets = await tx.budget.findMany({
+      where: { householdId },
       include: { category: true },
     });
     const budgets: BudgetProgress[] = dbBudgets
@@ -142,8 +150,8 @@ export async function GET(req: Request): Promise<NextResponse> {
     const trendStart = new Date(Date.UTC(year, mon - 1 - 11, 1));
     const trendEnd = monthEnd; // exclusive end of selected month
 
-    const trendTxns: TxnWithCategory[] = await prisma.transaction.findMany({
-      where: { date: { gte: trendStart, lt: trendEnd } },
+    const trendTxns: TxnWithCategory[] = await tx.transaction.findMany({
+      where: { householdId, date: { gte: trendStart, lt: trendEnd } },
       include: { category: true },
     });
 
@@ -182,6 +190,7 @@ export async function GET(req: Request): Promise<NextResponse> {
       trend,
     };
     return NextResponse.json(response);
+    });
   } catch (err) {
     console.error("GET /api/stats", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

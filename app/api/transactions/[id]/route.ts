@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import { normalizeDescription } from "@/lib/categorize";
 import type { TxnDTO, UpdateTransactionRequest } from "@/lib/types";
 
@@ -40,10 +41,16 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ): Promise<NextResponse> {
   try {
-    const existing = await prisma.transaction.findUnique({
-      where: { id: params.id },
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
+    const existing = await tx.transaction.findFirst({
+      where: { id: params.id, householdId },
     });
-    if (!existing) {
+    if (!existing || existing.householdId !== householdId) {
       return NextResponse.json(
         { error: "Transaction not found" },
         { status: 404 }
@@ -62,10 +69,10 @@ export async function PATCH(
         data.category = { disconnect: true };
         data.categorySource = "none";
       } else {
-        const cat = await prisma.category.findUnique({
+        const cat = await tx.category.findUnique({
           where: { id: categoryId },
         });
-        if (!cat) {
+        if (!cat || cat.householdId !== householdId) {
           return NextResponse.json(
             { error: "Category not found" },
             { status: 400 }
@@ -82,7 +89,7 @@ export async function PATCH(
         typeof body.notes === "string" && body.notes !== "" ? body.notes : null;
     }
 
-    const updated = await prisma.transaction.update({
+    const updated = await tx.transaction.update({
       where: { id: params.id },
       data,
       include: { category: true, account: true },
@@ -99,23 +106,23 @@ export async function PATCH(
         );
       }
 
-      await prisma.categoryRule.upsert({
-        where: { pattern },
-        create: { pattern, categoryId: resolvedCategoryId },
+      await tx.categoryRule.upsert({
+        where: { householdId_pattern: { householdId, pattern } },
+        create: { pattern, categoryId: resolvedCategoryId, householdId },
         update: { categoryId: resolvedCategoryId },
       });
 
       if (body.createRule.applyToExisting) {
-        const candidates = await prisma.transaction.findMany({
-          where: { categorySource: { in: ["none", "builtin", "rule"] } },
+        const candidates = await tx.transaction.findMany({
+          where: { categorySource: { in: ["none", "builtin", "rule"] }, householdId },
           select: { id: true, description: true },
         });
         const matchIds = candidates
           .filter((t) => normalizeDescription(t.description).includes(pattern))
           .map((t) => t.id);
         if (matchIds.length > 0) {
-          await prisma.transaction.updateMany({
-            where: { id: { in: matchIds } },
+          await tx.transaction.updateMany({
+            where: { id: { in: matchIds }, householdId },
             data: { categoryId: resolvedCategoryId, categorySource: "rule" },
           });
         }
@@ -123,6 +130,7 @@ export async function PATCH(
     }
 
     return NextResponse.json(toTxnDTO(updated));
+    });
   } catch (err) {
     console.error("PATCH /api/transactions/[id]", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
@@ -134,17 +142,23 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ): Promise<NextResponse> {
   try {
-    const existing = await prisma.transaction.findUnique({
-      where: { id: params.id },
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    return await withRlsUser(context.userId, async (tx) => {
+    const existing = await tx.transaction.findFirst({
+      where: { id: params.id, householdId: context.membership.householdId },
     });
-    if (!existing) {
+    if (!existing || existing.householdId !== context.membership.householdId) {
       return NextResponse.json(
         { error: "Transaction not found" },
         { status: 404 }
       );
     }
-    await prisma.transaction.delete({ where: { id: params.id } });
+    await tx.transaction.delete({ where: { id: params.id } });
     return NextResponse.json({ ok: true });
+    });
   } catch (err) {
     console.error("DELETE /api/transactions/[id]", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

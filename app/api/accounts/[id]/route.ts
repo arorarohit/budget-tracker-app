@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 
 export const dynamic = "force-dynamic";
 
@@ -8,15 +9,23 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ): Promise<NextResponse> {
   try {
-    const existing = await prisma.account.findUnique({
-      where: { id: params.id },
-    });
-    if (!existing) {
-      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
     }
-    // FK SetNull leaves the account's transactions with accountId = null.
-    await prisma.account.delete({ where: { id: params.id } });
-    return NextResponse.json({ ok: true });
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
+      const existing = await tx.account.findFirst({
+        where: { id: params.id, householdId },
+        select: { id: true },
+      });
+      if (!existing) {
+        return NextResponse.json({ error: "Account not found" }, { status: 404 });
+      }
+      // FK SetNull leaves the account's transactions with accountId = null.
+      await tx.account.delete({ where: { id: params.id } });
+      return NextResponse.json({ ok: true });
+    });
   } catch (err) {
     console.error("DELETE /api/accounts/[id]", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

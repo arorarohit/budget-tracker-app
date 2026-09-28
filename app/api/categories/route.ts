@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import type { CategoryDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,14 @@ const VALID_TYPES = ["expense", "income", "transfer"];
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const categories = await prisma.category.findMany({
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
+    const categories = await tx.category.findMany({
+      where: { householdId },
       orderBy: { name: "asc" },
       include: {
         budget: true,
@@ -27,6 +35,7 @@ export async function GET(): Promise<NextResponse> {
     }));
 
     return NextResponse.json(body);
+    });
   } catch (err) {
     console.error("GET /api/categories", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
@@ -35,6 +44,12 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(req: Request): Promise<NextResponse> {
   try {
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
     const body = (await req.json()) as {
       name?: unknown;
       type?: unknown;
@@ -55,7 +70,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         ? body.type
         : "expense";
 
-    const existing = await prisma.category.findUnique({ where: { name } });
+    const existing = await tx.category.findFirst({ where: { name, householdId } });
     if (existing) {
       return NextResponse.json(
         { error: "A category with that name already exists" },
@@ -73,7 +88,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       data.color = body.color;
     if (typeof body.icon === "string" && body.icon !== "") data.icon = body.icon;
 
-    const created = await prisma.category.create({ data });
+    const created = await tx.category.create({ data: { ...data, householdId } });
 
     const dto: CategoryDTO = {
       id: created.id,
@@ -85,6 +100,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       budgetPence: null,
     };
     return NextResponse.json(dto, { status: 201 });
+    });
   } catch (err) {
     console.error("POST /api/categories", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

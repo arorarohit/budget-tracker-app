@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import type {
   CreateTransactionRequest,
   TransactionListResponse,
@@ -52,6 +53,12 @@ function monthRange(month: string): { gte: Date; lt: Date } | null {
 
 export async function GET(req: Request): Promise<NextResponse> {
   try {
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month");
     const categoryId = searchParams.get("categoryId");
@@ -59,7 +66,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     const q = searchParams.get("q");
     const uncategorized = searchParams.get("uncategorized");
 
-    const where: Prisma.TransactionWhereInput = {};
+    const where: Prisma.TransactionWhereInput = { householdId };
 
     if (month) {
       const range = monthRange(month);
@@ -101,14 +108,14 @@ export async function GET(req: Request): Promise<NextResponse> {
       Number.isFinite(offsetRaw) && offsetRaw > 0 ? Math.floor(offsetRaw) : 0;
 
     const [rows, total] = await Promise.all([
-      prisma.transaction.findMany({
+      tx.transaction.findMany({
         where,
         include: { category: true, account: true },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
         take: limit,
         skip: offset,
       }),
-      prisma.transaction.count({ where }),
+      tx.transaction.count({ where }),
     ]);
 
     const body: TransactionListResponse = {
@@ -116,6 +123,7 @@ export async function GET(req: Request): Promise<NextResponse> {
       total,
     };
     return NextResponse.json(body);
+    });
   } catch (err) {
     console.error("GET /api/transactions", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
@@ -124,6 +132,12 @@ export async function GET(req: Request): Promise<NextResponse> {
 
 export async function POST(req: Request): Promise<NextResponse> {
   try {
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
     const body = (await req.json()) as CreateTransactionRequest;
 
     if (
@@ -151,8 +165,8 @@ export async function POST(req: Request): Promise<NextResponse> {
         : null;
 
     if (categoryId) {
-      const cat = await prisma.category.findUnique({ where: { id: categoryId } });
-      if (!cat) {
+      const cat = await tx.category.findUnique({ where: { id: categoryId } });
+      if (!cat || cat.householdId !== householdId) {
         return NextResponse.json(
           { error: "Category not found" },
           { status: 400 }
@@ -160,8 +174,8 @@ export async function POST(req: Request): Promise<NextResponse> {
       }
     }
     if (accountId) {
-      const acc = await prisma.account.findUnique({ where: { id: accountId } });
-      if (!acc) {
+      const acc = await tx.account.findUnique({ where: { id: accountId } });
+      if (!acc || acc.householdId !== householdId) {
         return NextResponse.json(
           { error: "Account not found" },
           { status: 400 }
@@ -169,7 +183,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       }
     }
 
-    const created = await prisma.transaction.create({
+    const created = await tx.transaction.create({
       data: {
         date: new Date(body.date + "T00:00:00.000Z"),
         description: body.description,
@@ -183,11 +197,13 @@ export async function POST(req: Request): Promise<NextResponse> {
         categoryId,
         categorySource: categoryId ? "manual" : "none",
         accountId,
+        householdId,
       },
       include: { category: true, account: true },
     });
 
     return NextResponse.json(toTxnDTO(created), { status: 201 });
+    });
   } catch (err) {
     console.error("POST /api/transactions", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

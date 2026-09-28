@@ -3,36 +3,39 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Account {
   id           String        @id @default(cuid())
-  name         String        @unique
+  name         String
   type         String        @default("current") // "current" | "savings" | "credit_card"
   institution  String        @default("")
-  householdId  String?
-  household    Household?     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId  String
+  household    Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   createdAt    DateTime      @default(now())
 
   @@index([householdId])
+  @@unique([householdId, name])
 }
 
 model Category {
   id           String         @id @default(cuid())
-  name         String         @unique
+  name         String
   type         String         @default("expense") // "expense" | "income" | "transfer"
   color        String         @default("#64748b")
   icon         String         @default("🏷️")
-  householdId  String?
-  household    Household?     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId  String
+  household    Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   budget       Budget?
   rules        CategoryRule[]
 
   @@index([householdId])
+  @@unique([householdId, name])
 }
 
 model Transaction {
@@ -42,45 +45,47 @@ model Transaction {
   merchant       String? // normalised, human-friendly merchant / display name
   amountPence    Int // ALWAYS negative = money out, positive = money in (normalised at import)
   source         String    @default("manual") // bank preset name or "manual"
-  importHash     String?   @unique // "<contentHash>:<dupSeq>" — content-based dedupe key
+  importHash     String? // "<contentHash>:<dupSeq>" — content-based dedupe key
   notes          String?
   categorySource String    @default("none") // "none" | "builtin" | "rule" | "manual"
   categoryId     String?
   category       Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   accountId      String?
   account        Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  householdId    String?
-  household      Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId    String
+  household      Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   createdAt      DateTime  @default(now())
 
   @@index([date])
   @@index([categoryId])
   @@index([accountId])
   @@index([householdId])
+  @@unique([householdId, importHash])
 }
 
 model Budget {
   id          String   @id @default(cuid())
   categoryId  String   @unique
-  householdId String?
+  householdId String
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  household   Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   amountPence Int // recurring monthly budget for the category (applies to all months)
 
-  @@unique([householdId, categoryId])
   @@index([householdId])
+  @@unique([householdId, categoryId])
 }
 
 model CategoryRule {
   id         String        @id @default(cuid())
-  pattern    String        @unique // UPPERCASE substring matched against normalised description
+  pattern    String // UPPERCASE substring matched against normalised description
   categoryId String
-  householdId String?
+  householdId String
   category   Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  household  Household?    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household  Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
   createdAt  DateTime      @default(now())
 
   @@index([householdId])
+  @@unique([householdId, pattern])
 }
 
 model Household {

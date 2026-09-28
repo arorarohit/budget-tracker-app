@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import type { CategoryDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +12,16 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ): Promise<NextResponse> {
   try {
-    const existing = await prisma.category.findUnique({
-      where: { id: params.id },
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
+    const existing = await tx.category.findFirst({
+      where: { id: params.id, householdId },
     });
-    if (!existing) {
+    if (!existing || existing.householdId !== householdId) {
       return NextResponse.json(
         { error: "Category not found" },
         { status: 404 }
@@ -43,7 +50,7 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      const clash = await prisma.category.findUnique({ where: { name } });
+      const clash = await tx.category.findFirst({ where: { name, householdId } });
       if (clash && clash.id !== params.id) {
         return NextResponse.json(
           { error: "A category with that name already exists" },
@@ -78,7 +85,7 @@ export async function PATCH(
       data.icon = body.icon;
     }
 
-    const updated = await prisma.category.update({
+    const updated = await tx.category.update({
       where: { id: params.id },
       data,
       include: {
@@ -97,6 +104,7 @@ export async function PATCH(
       budgetPence: updated.budget ? updated.budget.amountPence : null,
     };
     return NextResponse.json(dto);
+    });
   } catch (err) {
     console.error("PATCH /api/categories/[id]", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
@@ -108,10 +116,16 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ): Promise<NextResponse> {
   try {
-    const existing = await prisma.category.findUnique({
-      where: { id: params.id },
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
+    const existing = await tx.category.findFirst({
+      where: { id: params.id, householdId },
     });
-    if (!existing) {
+    if (!existing || existing.householdId !== householdId) {
       return NextResponse.json(
         { error: "Category not found" },
         { status: 404 }
@@ -121,14 +135,15 @@ export async function DELETE(
     // First mark this category's transactions uncategorised (categorySource
     // "none"); the FK SetNull then clears categoryId, and budgets/rules cascade
     // on category delete.
-    await prisma.transaction.updateMany({
-      where: { categoryId: params.id },
+    await tx.transaction.updateMany({
+      where: { categoryId: params.id, householdId },
       data: { categorySource: "none" },
     });
 
-    await prisma.category.delete({ where: { id: params.id } });
+    await tx.category.delete({ where: { id: params.id } });
 
     return NextResponse.json({ ok: true });
+    });
   } catch (err) {
     console.error("DELETE /api/categories/[id]", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

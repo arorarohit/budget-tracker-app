@@ -38,11 +38,20 @@ const CATEGORIES: { name: string; type: string; color: string; icon: string }[] 
 ];
 
 async function main() {
+  const householdId = process.env.SEED_HOUSEHOLD_ID;
+  if (!householdId) {
+    throw new Error("SEED_HOUSEHOLD_ID is required when seeding PostgreSQL.");
+  }
   for (const c of CATEGORIES) {
     await prisma.category.upsert({
-      where: { name: c.name },
+      where: {
+        householdId_name: {
+          householdId,
+          name: c.name,
+        },
+      },
       update: { type: c.type, color: c.color, icon: c.icon },
-      create: c,
+      create: { ...c, householdId },
     });
   }
   console.log(`Seeded ${CATEGORIES.length} categories.`);

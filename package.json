@@ -10,6 +10,12 @@
     "test": "vitest run",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "migration:export": "tsx scripts/export-sqlite.ts",
+    "migration:import": "tsx scripts/import-postgres.ts",
+    "db:rls": "tsx scripts/apply-rls.ts",
+    "db:rls:inspect": "tsx scripts/inspect-rls.ts",
+    "test:rls": "tsx scripts/validate-rls.ts",
+    "test:auth-api": "tsx scripts/validate-auth-api.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -18,6 +24,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.0",
     "@types/pdf-parse": "^1.1.5",
+    "better-sqlite3": "^13.0.3",
     "canvas": "^3.2.3",
     "date-fns": "^3.6.0",
     "next": "^14.2.15",
@@ -30,6 +37,7 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20.14.0",
     "@types/papaparse": "^5.3.14",
     "@types/react": "^18.3.3",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import type { AccountDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -8,20 +9,28 @@ const VALID_TYPES = ["current", "savings", "credit_card"];
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const accounts = await prisma.account.findMany({
-      orderBy: { name: "asc" },
-      include: { _count: { select: { transactions: true } } },
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
+      const accounts = await tx.account.findMany({
+        where: { householdId },
+        orderBy: { name: "asc" },
+        include: { _count: { select: { transactions: true } } },
+      });
+
+      const body: AccountDTO[] = accounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        institution: a.institution,
+        txnCount: a._count.transactions,
+      }));
+
+      return NextResponse.json(body);
     });
-
-    const body: AccountDTO[] = accounts.map((a) => ({
-      id: a.id,
-      name: a.name,
-      type: a.type,
-      institution: a.institution,
-      txnCount: a._count.transactions,
-    }));
-
-    return NextResponse.json(body);
   } catch (err) {
     console.error("GET /api/accounts", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
@@ -30,6 +39,12 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(req: Request): Promise<NextResponse> {
   try {
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
     const body = (await req.json()) as {
       name?: unknown;
       type?: unknown;
@@ -49,7 +64,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         ? body.type
         : "current";
 
-    const existing = await prisma.account.findUnique({ where: { name } });
+    const existing = await tx.account.findFirst({ where: { name, householdId } });
     if (existing) {
       return NextResponse.json(
         { error: "An account with that name already exists" },
@@ -57,10 +72,11 @@ export async function POST(req: Request): Promise<NextResponse> {
       );
     }
 
-    const created = await prisma.account.create({
+    const created = await tx.account.create({
       data: {
         name,
         type,
+        householdId,
         institution:
           typeof body.institution === "string" ? body.institution : "",
       },
@@ -74,6 +90,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       txnCount: 0,
     };
     return NextResponse.json(dto, { status: 201 });
+    });
   } catch (err) {
     console.error("POST /api/accounts", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

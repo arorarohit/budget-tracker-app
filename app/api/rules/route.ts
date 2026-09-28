@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import { normalizeDescription } from "@/lib/categorize";
 import type { CreateRuleRequest, RuleDTO } from "@/lib/types";
 
@@ -7,7 +8,14 @@ export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const rules = await prisma.categoryRule.findMany({
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
+    const rules = await tx.categoryRule.findMany({
+      where: { householdId },
       include: { category: true },
       orderBy: { createdAt: "desc" },
     });
@@ -26,6 +34,7 @@ export async function GET(): Promise<NextResponse> {
     }));
 
     return NextResponse.json(body);
+    });
   } catch (err) {
     console.error("GET /api/rules", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
@@ -34,6 +43,12 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(req: Request): Promise<NextResponse> {
   try {
+    const context = await requireHousehold();
+    if (!context.membership) {
+      return NextResponse.json(householdAccessError(context.status), { status: context.status });
+    }
+    const householdId = context.membership.householdId;
+    return await withRlsUser(context.userId, async (tx) => {
     const body = (await req.json()) as CreateRuleRequest;
 
     const pattern =
@@ -51,34 +66,34 @@ export async function POST(req: Request): Promise<NextResponse> {
       );
     }
 
-    const category = await prisma.category.findUnique({
+    const category = await tx.category.findUnique({
       where: { id: body.categoryId },
     });
-    if (!category) {
+    if (!category || category.householdId !== householdId) {
       return NextResponse.json(
         { error: "Category not found" },
         { status: 400 }
       );
     }
 
-    const rule = await prisma.categoryRule.upsert({
-      where: { pattern },
-      create: { pattern, categoryId: body.categoryId },
+    const rule = await tx.categoryRule.upsert({
+      where: { householdId_pattern: { householdId, pattern } },
+      create: { pattern, categoryId: body.categoryId, householdId },
       update: { categoryId: body.categoryId },
       include: { category: true },
     });
 
     if (body.applyToExisting) {
-      const candidates = await prisma.transaction.findMany({
-        where: { categorySource: { in: ["none", "builtin", "rule"] } },
+      const candidates = await tx.transaction.findMany({
+        where: { categorySource: { in: ["none", "builtin", "rule"] }, householdId },
         select: { id: true, description: true },
       });
       const matchIds = candidates
         .filter((t) => normalizeDescription(t.description).includes(pattern))
         .map((t) => t.id);
       if (matchIds.length > 0) {
-        await prisma.transaction.updateMany({
-          where: { id: { in: matchIds } },
+        await tx.transaction.updateMany({
+          where: { id: { in: matchIds }, householdId },
           data: { categoryId: body.categoryId, categorySource: "rule" },
         });
       }
@@ -97,6 +112,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       createdAt: rule.createdAt.toISOString(),
     };
     return NextResponse.json(dto, { status: 201 });
+    });
   } catch (err) {
     console.error("POST /api/rules", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
