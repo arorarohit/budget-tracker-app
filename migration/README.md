@@ -33,6 +33,21 @@ npm run migration:import
 
 The import creates one household and owner membership, then copies accounts, categories, transactions, budgets, and rules while preserving IDs and timestamps. It does not delete or modify the SQLite source.
 
+## Import only categories and categorisation rules
+
+To merge the local SQLite categories and user-created rules into an existing
+PostgreSQL household without importing accounts, transactions, or budgets:
+
+```powershell
+$env:TARGET_HOUSEHOLD_ID = "the-existing-household-id"
+npm run migration:categories-rules
+```
+
+The command reads `prisma/dev.db` by default (or `SQLITE_DATABASE_PATH`),
+creates missing categories/rules, and updates matching category metadata and
+rule category assignments to match SQLite. It is safe to rerun and does not
+delete categories or rules from either database.
+
 ## RLS policy and isolation checks
 
 The household RLS policies are in `prisma/rls.sql`; apply them with:

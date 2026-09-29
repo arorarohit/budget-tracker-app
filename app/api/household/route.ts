@@ -17,14 +17,22 @@ export async function POST(req: Request): Promise<NextResponse> {
       select: { householdId: true },
     });
     if (existing) {
-      return NextResponse.json({ householdId: existing.householdId });
+      return NextResponse.json({ householdId: existing.householdId }, { status: 200 });
     }
 
-    const body = (await req.json().catch(() => ({}))) as { name?: unknown };
-    const name =
-      typeof body.name === "string" && body.name.trim() !== ""
-        ? body.name.trim()
-        : "Family household";
+    let body: { name?: unknown };
+    try {
+      body = (await req.json()) as { name?: unknown };
+    } catch {
+      return NextResponse.json({ error: "A valid household name is required" }, { status: 400 });
+    }
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name || name.length > 80) {
+      return NextResponse.json(
+        { error: "Household name must be between 1 and 80 characters" },
+        { status: 400 }
+      );
+    }
 
     const household = await prisma.household.create({
       data: {

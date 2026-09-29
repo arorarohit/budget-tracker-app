@@ -12,6 +12,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "migration:export": "tsx scripts/export-sqlite.ts",
     "migration:import": "tsx scripts/import-postgres.ts",
+    "migration:categories-rules": "tsx scripts/import-categories-rules.ts",
     "db:rls": "tsx scripts/apply-rls.ts",
     "db:rls:inspect": "tsx scripts/inspect-rls.ts",
     "test:rls": "tsx scripts/validate-rls.ts",
@@ -34,6 +35,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.15.0",
+    "swr": "^2.5.1",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {

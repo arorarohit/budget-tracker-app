@@ -60,6 +60,15 @@ model Transaction {
   @@index([categoryId])
   @@index([accountId])
   @@index([householdId])
+  // Composite indexes matching the actual query patterns in
+  // app/api/transactions and app/api/stats (all queries always filter by
+  // householdId first, then narrow by date range and/or categoryId/accountId).
+  // A single-column householdId index alone forces Postgres to then filter
+  // the remaining columns without an index, which degrades as transaction
+  // volume grows. These let the planner use one index for the whole filter.
+  @@index([householdId, date])
+  @@index([householdId, categoryId])
+  @@index([householdId, accountId])
   @@unique([householdId, importHash])
 }
 

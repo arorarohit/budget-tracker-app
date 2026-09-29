@@ -1,33 +1,23 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { PageHeader, Spinner } from "@/components/ui";
-import type { CategoryDTO } from "@/lib/types";
+import { useCategories } from "@/lib/hooks/useCategories";
 import CategoryManager from "@/components/categories/CategoryManager";
 import RulesManager from "@/components/categories/RulesManager";
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<CategoryDTO[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadCategories = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await fetch("/api/categories");
-      if (!res.ok) throw new Error("Failed to load categories");
-      const data: CategoryDTO[] = await res.json();
-      setCategories(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load categories");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadCategories();
-  }, [loadCategories]);
+  // Shared SWR cache: if the Budgets or Transactions page already fetched
+  // categories recently, this renders instantly from cache instead of
+  // re-fetching and showing a spinner on every navigation to this page.
+  const { categories, isLoading, error, refresh } = useCategories();
+  const loading = isLoading && categories.length === 0;
+  // CategoryManager's onChanged expects () => void | Promise<void>; SWR's
+  // mutate() resolves with the revalidated data, which isn't assignable to
+  // that signature, so wrap it to discard the return value.
+  const handleChanged = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
 
   return (
     <div>
@@ -48,7 +38,7 @@ export default function CategoriesPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <CategoryManager categories={categories} onChanged={loadCategories} />
+          <CategoryManager categories={categories} onChanged={handleChanged} />
           <RulesManager categories={categories} />
         </div>
       )}

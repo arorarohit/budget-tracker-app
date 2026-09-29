@@ -21,12 +21,12 @@ import {
 import MonthPicker from "@/components/MonthPicker";
 import { currentMonth } from "@/lib/format";
 import type {
-  AccountDTO,
-  CategoryDTO,
   TransactionListResponse,
   TxnDTO,
   UpdateTransactionRequest,
 } from "@/lib/types";
+import { useCategories } from "@/lib/hooks/useCategories";
+import { useAccounts } from "@/lib/hooks/useAccounts";
 import TransactionsTable from "@/components/transactions/TransactionsTable";
 import RulePromptModal from "@/components/transactions/RulePromptModal";
 import AddTransactionModal from "@/components/transactions/AddTransactionModal";
@@ -56,8 +56,10 @@ function TransactionsPageInner() {
   const [offset, setOffset] = useState(0);
 
   // ---- Reference data ----
-  const [categories, setCategories] = useState<CategoryDTO[]>([]);
-  const [accounts, setAccounts] = useState<AccountDTO[]>([]);
+  // Shared SWR cache: reused instantly if Categories/Budgets pages already
+  // fetched this data, instead of firing a fresh independent request here.
+  const { categories } = useCategories();
+  const { accounts } = useAccounts();
 
   // ---- Transaction data ----
   const [transactions, setTransactions] = useState<TxnDTO[]>([]);
@@ -94,29 +96,6 @@ function TransactionsPageInner() {
   useEffect(() => {
     setOffset(0);
   }, [allMonths, month, categoryFilter, accountFilter]);
-
-  // Load reference data once.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [catRes, accRes] = await Promise.all([
-          fetch("/api/categories"),
-          fetch("/api/accounts"),
-        ]);
-        const cats = (await catRes.json()) as CategoryDTO[];
-        const accs = (await accRes.json()) as AccountDTO[];
-        if (cancelled) return;
-        setCategories(Array.isArray(cats) ? cats : []);
-        setAccounts(Array.isArray(accs) ? accs : []);
-      } catch {
-        // Non-fatal: filters just show fewer options.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const buildQuery = useCallback(() => {
     const params = new URLSearchParams();

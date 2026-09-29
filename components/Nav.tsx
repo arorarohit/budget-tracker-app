@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const LINKS = [
   { href: "/", label: "Dashboard", icon: "📊" },
@@ -10,6 +9,7 @@ const LINKS = [
   { href: "/budgets", label: "Budgets", icon: "🎯" },
   { href: "/import", label: "Import", icon: "📥" },
   { href: "/categories", label: "Categories", icon: "🏷️" },
+  { href: "/household", label: "Household", icon: "👥" },
 ];
 
 export default function Nav() {
@@ -47,6 +47,14 @@ export default function Nav() {
       <button
         type="button"
         onClick={async () => {
+          // Lazy-load the Supabase browser client (and its auth-js dependency)
+          // only when the user actually signs out, instead of bundling it
+          // into every route's initial JS via a static top-level import. Nav
+          // renders on every single page, so this keeps the sign-out-only
+          // code out of the route transition's critical JS path.
+          const { createSupabaseBrowserClient } = await import(
+            "@/lib/supabase/browser"
+          );
           const supabase = createSupabaseBrowserClient();
           await supabase.auth.signOut();
           window.location.href = "/login";

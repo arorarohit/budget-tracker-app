@@ -41,7 +41,7 @@ export default function LoginPage() {
 
       if (mode === "sign-up") {
         setMessage(
-          "Registration successful. Check your email if confirmation is enabled, then sign in."
+          "Account created. Check your email if confirmation is enabled, then sign in. You can create a household or ask its owner to add your registered email."
         );
         setMode("sign-in");
         return;
@@ -77,7 +77,9 @@ export default function LoginPage() {
       <section className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-xl">
         <h1 className="text-2xl font-bold text-white">Budget Tracker</h1>
         <p className="mt-2 text-sm text-slate-400">
-          {mode === "sign-in" ? "Sign in to your household account." : "Create your household account."}
+          {mode === "sign-in"
+            ? "Sign in to manage your household budget."
+            : "Create your account. You can set up or join a household after signing in."}
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
+import HouseholdGuard from "@/components/HouseholdGuard";
+import SWRProvider from "@/components/swr-config";
 
 export const metadata: Metadata = {
   title: "Budget Tracker",
@@ -15,12 +17,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <div className="flex min-h-screen">
-          <Nav />
-          <main className="flex-1 min-w-0 px-6 py-8 lg:px-10">
-            <div className="mx-auto max-w-6xl">{children}</div>
-          </main>
-        </div>
+        <SWRProvider>
+          <HouseholdGuard>
+            <div className="flex min-h-screen">
+              <Nav />
+              <main className="flex-1 min-w-0 px-6 py-8 lg:px-10">
+                <div className="mx-auto max-w-6xl">{children}</div>
+              </main>
+            </div>
+          </HouseholdGuard>
+        </SWRProvider>
       </body>
     </html>
   );

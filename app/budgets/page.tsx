@@ -10,12 +10,9 @@ import {
   Spinner,
 } from "@/components/ui";
 import { currentMonth, formatMonth, formatPenceAbs } from "@/lib/format";
-import type {
-  BudgetDTO,
-  CategoryDTO,
-  SetBudgetsRequest,
-  StatsResponse,
-} from "@/lib/types";
+import type { BudgetDTO, SetBudgetsRequest } from "@/lib/types";
+import { useCategories } from "@/lib/hooks/useCategories";
+import { useStats } from "@/lib/hooks/useStats";
 import BudgetEditor, { poundsToPence } from "@/components/budgets/BudgetEditor";
 
 /** Map a CategoryDTO.budgetPence to the controlled pounds input string. */
@@ -27,43 +24,32 @@ function penceToPounds(budgetPence: number | null): string {
 export default function BudgetsPage() {
   const month = useMemo(() => currentMonth(), []);
 
-  const [categories, setCategories] = useState<CategoryDTO[]>([]);
-  const [stats, setStats] = useState<StatsResponse | null>(null);
+  // Both hooks are SWR-backed and share their cache keys with other pages
+  // (Categories page also uses useCategories; Dashboard also uses useStats
+  // for the same month) — so if either was fetched recently, this page
+  // renders with cached data instantly instead of showing a spinner.
+  const { categories, isLoading: categoriesLoading, error: categoriesError, refresh: refreshCategories } = useCategories();
+  const { stats, isLoading: statsLoading, error: statsError, refresh: refreshStats } = useStats(month);
+
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [catRes, statsRes] = await Promise.all([
-        fetch("/api/categories"),
-        fetch(`/api/stats?month=${month}`),
-      ]);
-      if (!catRes.ok) throw new Error("Failed to load categories");
-      if (!statsRes.ok) throw new Error("Failed to load stats");
-      const cats: CategoryDTO[] = await catRes.json();
-      const s: StatsResponse = await statsRes.json();
-      setCategories(cats);
-      setStats(s);
-      const nextDrafts: Record<string, string> = {};
-      for (const c of cats) {
-        nextDrafts[c.id] = penceToPounds(c.budgetPence);
-      }
-      setDrafts(nextDrafts);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load budgets");
-    } finally {
-      setLoading(false);
-    }
-  }, [month]);
+  const loading = (categoriesLoading && categories.length === 0) || (statsLoading && !stats);
+  const error = saveError ?? categoriesError ?? statsError;
 
+  // Sync drafts when the upstream category list changes, preserving any
+  // in-flight edits for ids still present (mirrors CategoryManager's pattern).
   useEffect(() => {
-    void load();
-  }, [load]);
+    setDrafts((prev) => {
+      const next: Record<string, string> = {};
+      for (const c of categories) {
+        next[c.id] = prev[c.id] ?? penceToPounds(c.budgetPence);
+      }
+      return next;
+    });
+  }, [categories]);
 
   // Only expense categories get budgets; income/transfer are skipped.
   const expenseCategories = useMemo(
@@ -100,7 +86,7 @@ export default function BudgetsPage() {
 
   const handleSave = useCallback(async () => {
     setSaving(true);
-    setError(null);
+    setSaveError(null);
     setFlash(false);
     try {
       const body: SetBudgetsRequest = {
@@ -118,17 +104,18 @@ export default function BudgetsPage() {
         const data: { error?: string } = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to save budgets");
       }
-      // Response is BudgetDTO[]; refetch everything to stay consistent.
+      // Response is BudgetDTO[]; refresh the shared caches so every page
+      // (Categories, Dashboard) reflects the new budgets immediately.
       (await res.json()) as BudgetDTO[];
       setFlash(true);
       window.setTimeout(() => setFlash(false), 2500);
-      await load();
+      await Promise.all([refreshCategories(), refreshStats()]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save budgets");
+      setSaveError(e instanceof Error ? e.message : "Failed to save budgets");
     } finally {
       setSaving(false);
     }
-  }, [expenseCategories, drafts, load]);
+  }, [expenseCategories, drafts, refreshCategories, refreshStats]);
 
   return (
     <div>
