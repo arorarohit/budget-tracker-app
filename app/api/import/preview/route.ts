@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import { parseCsv } from "@/lib/parsers";
 import { parsePdfBuffer } from "@/lib/parsers/pdf";
 import { categorize, displayMerchant } from "@/lib/categorize";
 import { contentHash } from "@/lib/import-hash";
+import { loadExistingImportCounts } from "@/lib/import-dedupe";
 import type {
   PreviewRequest,
   PreviewResponse,
@@ -142,17 +142,21 @@ export async function POST(req: Request): Promise<NextResponse> {
       else groups.set(h, [i]);
     }
 
-    // For each distinct hash, count how many rows already exist in the DB.
-    const existingCounts = new Map<string, number>();
-    await Promise.all(
-      Array.from(groups.keys()).map(async (h) => {
-        const count = await withRlsUser(context.userId, (tx) =>
-          tx.transaction.count({
-            where: { importHash: { startsWith: `${h}:` }, householdId },
-          })
-        );
-        existingCounts.set(h, count);
-      })
+    // Read existing hashes in bounded batches rather than opening one
+    // concurrent transaction per distinct statement row.
+    const existingCounts = await withRlsUser(context.userId, async (tx) =>
+      loadExistingImportCounts(Array.from(groups.keys()), (batch) =>
+        tx.transaction.findMany({
+          where: {
+            householdId,
+            accountId: account.id,
+            OR: batch.map((hash) => ({
+              importHash: { startsWith: `${hash}:` },
+            })),
+          },
+          select: { importHash: true },
+        })
+      )
     );
 
     // The first `existingCount` rows of each group are flagged duplicate.

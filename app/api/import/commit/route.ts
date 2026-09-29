@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { requireHousehold, householdAccessError, withRlsUser } from "@/lib/auth/household";
 import { buildImportHash, contentHash } from "@/lib/import-hash";
+import { loadExistingImportCounts } from "@/lib/import-dedupe";
 import type { CommitRequest, CommitResponse } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -76,15 +76,21 @@ export async function POST(req: Request): Promise<NextResponse> {
       else groups.set(hash, [entry]);
     }
 
-    // Existing count per hash.
-    const existingCounts = new Map<string, number>();
-    await Promise.all(
-      Array.from(groups.keys()).map(async (h) => {
-        const count = await tx.transaction.count({
-          where: { importHash: { startsWith: `${h}:` }, householdId },
-        });
-        existingCounts.set(h, count);
-      })
+    // Read existing hashes in bounded batches instead of issuing one count
+    // query per transaction row.
+    const existingCounts = await loadExistingImportCounts(
+      Array.from(groups.keys()),
+      (batch) =>
+        tx.transaction.findMany({
+          where: {
+            householdId,
+            accountId: account.id,
+            OR: batch.map((hash) => ({
+              importHash: { startsWith: `${hash}:` },
+            })),
+          },
+          select: { importHash: true },
+        })
     );
 
     let inserted = 0;
@@ -136,8 +142,8 @@ export async function POST(req: Request): Promise<NextResponse> {
 
     if (toInsert.length > 0) {
       // Strictly insert-only.
-      await Promise.all(toInsert.map((data) => tx.transaction.create({ data })));
-      inserted = toInsert.length;
+      const result = await tx.transaction.createMany({ data: toInsert });
+      inserted = result.count;
     }
 
     const response: CommitResponse = { inserted, skippedDuplicates };
