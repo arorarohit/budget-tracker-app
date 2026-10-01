@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Button, Card, Select, Spinner } from "@/components/ui";
+import { Button, Card, Spinner } from "@/components/ui";
+import CategoryCombobox from "@/components/CategoryCombobox";
 import { formatDate, formatPence } from "@/lib/format";
 import type { CategoryDTO, CommitRequest, PreviewResponse } from "@/lib/types";
 
-const UNCATEGORISED = "__uncat__";
+const UNCATEGORISED = "";
 
 /** Per-row category state tracked in the UI. */
 interface RowState {
@@ -78,8 +79,14 @@ export default function PreviewTable({
     };
   }, []);
 
-  function onPickCategory(index: number, value: string) {
-    const categoryName = value === UNCATEGORISED ? null : value;
+  function onPickCategory(index: number, categoryId: string) {
+    // CategoryCombobox works in category ids; PreviewTable/CommitRow track the
+    // category by NAME (matching the rest of the import contract), so resolve
+    // id -> name here.
+    const categoryName =
+      categoryId === UNCATEGORISED
+        ? null
+        : categories.find((c) => c.id === categoryId)?.name ?? null;
     setRowStates((prev) => {
       const next = prev.slice();
       // Any user pick marks the row "manual" (null when cleared).
@@ -160,7 +167,10 @@ export default function PreviewTable({
           <tbody>
             {preview.rows.map((row, i) => {
               const state = rowStates[i];
-              const selectValue = state?.categoryName ?? UNCATEGORISED;
+              const selectedCategoryId = state?.categoryName
+                ? categories.find((c) => c.name === state.categoryName)?.id ??
+                  UNCATEGORISED
+                : UNCATEGORISED;
               const out = row.amountPence < 0;
               const excluded = excludedRows.has(i);
               return (
@@ -195,17 +205,14 @@ export default function PreviewTable({
                     ) : !catsLoaded ? (
                       <Spinner />
                     ) : (
-                      <Select
-                        value={selectValue}
-                        onChange={(e) => onPickCategory(i, e.target.value)}
-                      >
-                        <option value={UNCATEGORISED}>Uncategorised</option>
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.name}>
-                            {c.icon} {c.name}
-                          </option>
-                        ))}
-                      </Select>
+                      <CategoryCombobox
+                        categories={categories}
+                        value={selectedCategoryId}
+                        onChange={(categoryId) => onPickCategory(i, categoryId)}
+                        uncategorizedLabel="Uncategorised"
+                        aria-label={`Category for ${row.description}`}
+                        className="min-w-[10rem]"
+                      />
                     )}
                   </td>
                   <td

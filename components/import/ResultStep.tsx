@@ -12,7 +12,7 @@ export default function ResultStep({
   result: CommitResponse;
   onImportAnother: () => void;
 }) {
-  const { inserted, skippedDuplicates } = result;
+  const { inserted, skippedDuplicates, rulesSaved } = result;
   return (
     <Card>
       <div className="flex flex-col items-center gap-3 py-8 text-center">
@@ -24,6 +24,12 @@ export default function ResultStep({
           {skippedDuplicates} duplicate
           {skippedDuplicates === 1 ? "" : "s"} skipped
         </div>
+        {rulesSaved > 0 && (
+          <div className="text-sm text-emerald-400">
+            {rulesSaved} categorisation rule{rulesSaved === 1 ? "" : "s"} saved —
+            matching merchants will auto-categorise next time
+          </div>
+        )}
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <Link href="/">
             <Button variant="primary">View dashboard</Button>

@@ -146,7 +146,37 @@ export async function POST(req: Request): Promise<NextResponse> {
       inserted = result.count;
     }
 
-    const response: CommitResponse = { inserted, skippedDuplicates };
+    // Auto-save a CategoryRule for every merchant the user manually
+    // categorised in the preview step, so the same merchant is
+    // auto-categorised (source "rule") on future statement imports without
+    // any extra action. Previously, picking a category in the import preview
+    // only applied to that one batch — nothing persisted for next time.
+    // Pattern derivation matches the existing "save rule" prompt on the
+    // Transactions page: (merchant || description), uppercased — both are
+    // already normalisation-derived, so the pattern is a safe substring of
+    // what `categorize()` matches against on the next import.
+    const patternToCategoryId = new Map<string, string>();
+    for (const row of body.rows) {
+      if (row.categorySource !== "manual") continue;
+      if (!row.categoryName) continue;
+      const categoryId = nameToId.get(row.categoryName);
+      if (!categoryId) continue;
+      const pattern = (row.merchant || row.description).toUpperCase().trim();
+      if (pattern === "") continue;
+      patternToCategoryId.set(pattern, categoryId);
+    }
+
+    let rulesSaved = 0;
+    for (const [pattern, categoryId] of patternToCategoryId) {
+      await tx.categoryRule.upsert({
+        where: { householdId_pattern: { householdId, pattern } },
+        create: { pattern, categoryId, householdId },
+        update: { categoryId },
+      });
+      rulesSaved++;
+    }
+
+    const response: CommitResponse = { inserted, skippedDuplicates, rulesSaved };
     return NextResponse.json(response);
     });
   } catch (err) {

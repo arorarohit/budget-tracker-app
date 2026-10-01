@@ -8,9 +8,9 @@ import {
   CategoryBadge,
   EmptyState,
   Input,
-  Select,
   Spinner,
 } from "@/components/ui";
+import CategoryCombobox from "@/components/CategoryCombobox";
 import { formatDate } from "@/lib/format";
 import type { CategoryDTO, CreateRuleRequest, RuleDTO } from "@/lib/types";
 
@@ -183,18 +183,17 @@ export default function RulesManager({
               if (e.key === "Enter") void handleAdd();
             }}
           />
-          <Select
+          <CategoryCombobox
+            categories={categories}
             value={categoryId}
+            onChange={setCategoryId}
+            placeholder={
+              categories.length === 0 ? "No categories" : "Search categories…"
+            }
+            disabled={categories.length === 0}
             aria-label="Rule category"
-            onChange={(e) => setCategoryId(e.target.value)}
-          >
-            {categories.length === 0 && <option value="">No categories</option>}
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.icon} {c.name}
-              </option>
-            ))}
-          </Select>
+            className="min-w-48"
+          />
           <Button
             variant="primary"
             disabled={adding || categories.length === 0}

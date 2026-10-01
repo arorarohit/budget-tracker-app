@@ -342,6 +342,13 @@ export interface CommitRequest {
 export interface CommitResponse {
   inserted: number;
   skippedDuplicates: number;
+  /**
+   * Number of distinct (pattern, category) CategoryRules automatically
+   * created/updated from rows the user manually categorised in the preview
+   * step (categorySource === "manual"), so the same merchant is
+   * auto-categorised on future imports without any extra action.
+   */
+  rulesSaved: number;
 }
 
 // ---------- Stats ----------
