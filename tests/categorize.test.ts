@@ -227,6 +227,29 @@ describe("categorize — realistic raw bank strings (no user rules)", () => {
     { raw: "Diesel", expected: "Shopping" },
     { raw: "AMAZON PRIME*AB12C", expected: "Subscriptions" },
     { raw: "AMZN MKTP UK", expected: "Shopping" },
+    { raw: "DISHOOM KINGS CROSS", expected: "Eating Out" },
+    { raw: "FLAT IRON LONDON", expected: "Eating Out" },
+    { raw: "CARD PAYMENT TO ABEL & COLE LTD", expected: "Groceries" },
+    { raw: "RIVERFORD ORGANIC FARMERS", expected: "Groceries" },
+    { raw: "BREAD AHEAD BOROUGH MARKET", expected: "Coffee & Snacks" },
+    { raw: "HEATHROW EXPRESS WEB", expected: "Transport" },
+    { raw: "SANTANDER CYCLES TFL", expected: "Transport" },
+    { raw: "FORTNUM AND MASON PICCADILLY", expected: "Shopping" },
+    { raw: "LIBERTY LONDON REGENT ST", expected: "Shopping" },
+    { raw: "HAMLEYS REGENT STREET", expected: "Shopping" },
+    { raw: "HOLLAND AND BARRETT LONDON", expected: "Health & Pharmacy" },
+    { raw: "OPTICAL EXPRESS LONDON", expected: "Health & Pharmacy" },
+    { raw: "ZAVA UK", expected: "Health & Pharmacy" },
+    { raw: "ROYAL OPERA HOUSE TICKETS", expected: "Entertainment" },
+    { raw: "SOUTHBANK CENTRE TICKETS", expected: "Entertainment" },
+    { raw: "BARBICAN TICKETS", expected: "Entertainment" },
+    { raw: "TODAYTIX LONDON", expected: "Entertainment" },
+    { raw: "THE GUARDIAN SUBSCRIPTION", expected: "Subscriptions" },
+    { raw: "FT.COM SUBSCRIPTION", expected: "Subscriptions" },
+    { raw: "THE ECONOMIST DIGITAL", expected: "Subscriptions" },
+    { raw: "GOOGLE *Google Play", expected: "Subscriptions" },
+    { raw: "ITUNES.COM/BILL", expected: "Subscriptions" },
+    { raw: "TALK TALK BILL PAYMENT", expected: "Phone & Internet" },
   ];
 
   for (const c of cases) {
@@ -257,6 +280,20 @@ describe("categorize — realistic raw bank strings (no user rules)", () => {
 });
 
 describe("categorize — longest-pattern-first precedence", () => {
+  it("does not mistake ordinary Apple purchases for subscriptions", () => {
+    expect(categorize("APPLE STORE LONDON", []).categoryName).toBeNull();
+    expect(categorize("APPLE.COM/BILL ICLOUD", []).categoryName).toBe(
+      "Subscriptions",
+    );
+  });
+
+  it("does not broadly categorize every Google transaction as a subscription", () => {
+    expect(categorize("GOOGLE *GOOGLE PLAY", []).categoryName).toBe(
+      "Subscriptions",
+    );
+    expect(categorize("GOOGLE STORE LONDON", []).categoryName).toBeNull();
+  });
+
   it("UBER EATS (Eating Out) beats UBER (Transport)", () => {
     expect(categorize("UBER EATS LONDON", []).categoryName).toBe("Eating Out");
     expect(categorize("UBER TRIP LONDON", []).categoryName).toBe("Transport");

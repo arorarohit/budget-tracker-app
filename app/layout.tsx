@@ -3,6 +3,7 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 import HouseholdGuard from "@/components/HouseholdGuard";
 import SWRProvider from "@/components/swr-config";
+import InactivityLogout from "@/components/InactivityLogout";
 
 export const metadata: Metadata = {
   title: "Budget Tracker",
@@ -18,6 +19,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <SWRProvider>
+          <InactivityLogout />
           <HouseholdGuard>
             <div className="flex min-h-screen">
               <Nav />

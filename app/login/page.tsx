@@ -1,11 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
@@ -18,6 +16,8 @@ export default function LoginPage() {
     setNextPath(params.get("next") || "/");
     if (params.get("error") === "config") {
       setMessage("Authentication is not configured for this environment.");
+    } else if (params.get("reason") === "inactivity") {
+      setMessage("You were signed out after 5 minutes of inactivity. Please sign in again.");
     }
   }, []);
 
@@ -47,8 +47,17 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace(nextPath);
-      router.refresh();
+      // A hard navigation (not router.replace/refresh) is required here: the
+      // Supabase browser client has just written fresh auth cookies, and
+      // middleware.ts needs to see them on a brand-new request to redirect
+      // past /login correctly. Next's client-side router can race this (the
+      // RSC cache / in-flight transition can retain the pre-login "/login"
+      // render for a beat), which is exactly why Nav.tsx's sign-out already
+      // uses window.location.href instead of the router for the same reason
+      // in reverse. A full navigation also guarantees HouseholdGuard's
+      // module-level `sessionVerified` flag starts clean for the new session.
+      window.location.href = nextPath;
+      return;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Authentication failed");
     } finally {
