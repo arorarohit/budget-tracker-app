@@ -23,6 +23,7 @@
  */
 import { useCallback, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { isAuthExemptPath } from "@/lib/auth/exempt-paths";
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const THROTTLE_MS = 1000;
@@ -35,10 +36,6 @@ const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
   "touchstart",
   "wheel",
 ];
-
-function isExemptPath(pathname: string): boolean {
-  return pathname === "/login" || pathname.startsWith("/auth/") || pathname === "/setup";
-}
 
 export default function InactivityLogout() {
   const pathname = usePathname();
@@ -93,7 +90,7 @@ export default function InactivityLogout() {
   );
 
   useEffect(() => {
-    if (isExemptPath(pathname)) {
+    if (isAuthExemptPath(pathname)) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       return;
     }

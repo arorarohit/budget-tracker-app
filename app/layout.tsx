@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Nav from "@/components/Nav";
+import AppShell from "@/components/AppShell";
 import HouseholdGuard from "@/components/HouseholdGuard";
 import SWRProvider from "@/components/swr-config";
 import InactivityLogout from "@/components/InactivityLogout";
@@ -21,12 +21,7 @@ export default function RootLayout({
         <SWRProvider>
           <InactivityLogout />
           <HouseholdGuard>
-            <div className="flex min-h-screen">
-              <Nav />
-              <main className="flex-1 min-w-0 px-6 py-8 lg:px-10">
-                <div className="mx-auto max-w-6xl">{children}</div>
-              </main>
-            </div>
+            <AppShell>{children}</AppShell>
           </HouseholdGuard>
         </SWRProvider>
       </body>

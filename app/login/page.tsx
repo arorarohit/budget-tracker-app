@@ -2,6 +2,18 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { Button, Input } from "@/components/ui";
+
+/** Illustrative category split for the hero panel — not tied to any real
+ * account/data (nobody is signed in yet). Mirrors the app's own category
+ * icons/names so the login screen looks like a preview of the real product
+ * rather than decorative stock art. Widths are presentational only. */
+const HERO_CATEGORIES: { icon: string; name: string; widthPct: number }[] = [
+  { icon: "\uD83D\uDED2", name: "Groceries", widthPct: 78 },
+  { icon: "\uD83D\uDE87", name: "Transport", widthPct: 52 },
+  { icon: "\uD83C\uDFE0", name: "Rent & Mortgage", widthPct: 95 },
+  { icon: "\uD83D\uDCFA", name: "Subscriptions", widthPct: 28 },
+];
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -82,68 +94,120 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-      <section className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-xl">
-        <h1 className="text-2xl font-bold text-white">Budget Tracker</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          {mode === "sign-in"
-            ? "Sign in to manage your household budget."
-            : "Create your account. You can set up or join a household after signing in."}
+    <main className="flex min-h-screen flex-col bg-slate-950 lg:flex-row">
+      {/* Hero panel: grounded in the actual product (category breakdown using
+          the same icon/label language as the real Dashboard), not generic
+          decoration. Compact band on mobile, full-height on desktop. */}
+      <section className="flex flex-col justify-between bg-emerald-950 px-8 py-10 lg:w-[44%] lg:px-14 lg:py-16">
+        <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-emerald-50">
+          <span aria-hidden>💷</span> Budget Tracker
+        </div>
+
+        <div className="mt-10 lg:mt-0">
+          <h1 className="max-w-sm text-3xl font-bold leading-tight tracking-tight text-white lg:text-4xl">
+            Know where every pound goes.
+          </h1>
+          <p className="mt-4 max-w-sm text-sm leading-6 text-emerald-200/80">
+            One shared view of your household&apos;s accounts, budgets, and bank
+            statements — built for the UK.
+          </p>
+
+          <div className="mt-10 max-w-xs space-y-3" aria-hidden>
+            {HERO_CATEGORIES.map((c) => (
+              <div key={c.name} className="flex items-center gap-3">
+                <span className="w-6 text-center text-base">{c.icon}</span>
+                <span className="w-32 shrink-0 text-xs text-emerald-200/70">
+                  {c.name}
+                </span>
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-emerald-900/60">
+                  <span
+                    className="block h-full rounded-full bg-emerald-400/80"
+                    style={{ width: `${c.widthPct}%` }}
+                  />
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="hidden text-xs text-emerald-200/50 lg:block">
+          Bank-grade security · your data stays within your household
         </p>
+      </section>
 
-        <form onSubmit={submit} className="mt-6 space-y-4">
-          <label className="block text-sm text-slate-300">
-            Email
-            <input
-              required
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
-            />
-          </label>
-          <label className="block text-sm text-slate-300">
-            Password
-            <input
-              required
-              minLength={8}
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
-            />
-          </label>
-          <button
+      {/* Form panel */}
+      <section className="flex flex-1 items-center justify-center px-6 py-12 lg:px-16">
+        <div className="w-full max-w-sm">
+          <h2 className="text-xl font-semibold text-white">
+            {mode === "sign-in" ? "Sign in" : "Create your account"}
+          </h2>
+          <p className="mt-1.5 text-sm text-slate-400">
+            {mode === "sign-in"
+              ? "Welcome back — enter your details to continue."
+              : "You can set up or join a household after signing in."}
+          </p>
+
+          <form onSubmit={submit} className="mt-7 space-y-4">
+            <label className="block text-sm text-slate-300">
+              Email
+              <Input
+                required
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="mt-1.5 w-full py-2"
+              />
+            </label>
+            <label className="block text-sm text-slate-300">
+              Password
+              <Input
+                required
+                minLength={8}
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="mt-1.5 w-full py-2"
+              />
+            </label>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={busy}
+              className="w-full justify-center py-2.5 text-sm"
+            >
+              {busy ? "Working…" : mode === "sign-in" ? "Sign in" : "Create account"}
+            </Button>
+          </form>
+
+          <Button
+            type="button"
+            variant="secondary"
             disabled={busy}
-            className="w-full rounded-lg bg-indigo-500 px-4 py-2 font-medium text-white hover:bg-indigo-400 disabled:opacity-50"
+            onClick={() => void signInWithGoogle()}
+            className="mt-3 w-full justify-center py-2.5 text-sm"
           >
-            {busy ? "Working…" : mode === "sign-in" ? "Sign in" : "Create account"}
+            Continue with Google
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === "sign-in" ? "sign-up" : "sign-in");
+              setMessage(null);
+            }}
+            className="mt-6 w-full text-center text-sm text-emerald-400 hover:text-emerald-300"
+          >
+            {mode === "sign-in"
+              ? "Need an account? Register"
+              : "Already registered? Sign in"}
           </button>
-        </form>
 
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void signInWithGoogle()}
-          className="mt-3 w-full rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
-        >
-          Continue with Google
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-            setMessage(null);
-          }}
-          className="mt-5 w-full text-sm text-indigo-300 hover:text-indigo-200"
-        >
-          {mode === "sign-in"
-            ? "Need an account? Register"
-            : "Already registered? Sign in"}
-        </button>
-
-        {message && <p className="mt-4 text-sm text-amber-300">{message}</p>}
+          {message && (
+            <p role="status" className="mt-5 text-sm text-amber-300">
+              {message}
+            </p>
+          )}
+        </div>
       </section>
     </main>
   );

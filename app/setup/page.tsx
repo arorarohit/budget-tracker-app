@@ -74,7 +74,7 @@ export default function HouseholdSetupPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10">
       <section className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-7 shadow-xl sm:p-9">
-        <p className="text-sm font-medium text-indigo-300">Welcome to Budget Tracker</p>
+        <p className="text-sm font-medium text-emerald-400">Welcome to Budget Tracker</p>
         <h1 className="mt-2 text-2xl font-bold text-white">Set up your household</h1>
         <p className="mt-3 text-sm leading-6 text-slate-400">
           Household members share accounts, categories, budgets, and transactions.
@@ -101,7 +101,7 @@ export default function HouseholdSetupPage() {
               <button
                 type="submit"
                 disabled={busy || !name.trim()}
-                className="w-full rounded-lg bg-indigo-500 px-4 py-2.5 font-medium text-white hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? "Creating household…" : "Create household"}
               </button>

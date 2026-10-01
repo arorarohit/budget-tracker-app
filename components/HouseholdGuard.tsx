@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { isAuthExemptPath } from "@/lib/auth/exempt-paths";
 
 type HouseholdResponse = {
   household: { id: string; name: string } | null;
@@ -14,10 +15,6 @@ let sessionVerified = false;
 
 function markVerified(): void {
   sessionVerified = true;
-}
-
-function isExemptPath(pathname: string): boolean {
-  return pathname === "/login" || pathname.startsWith("/auth/") || pathname === "/setup";
 }
 
 export default function HouseholdGuard({
@@ -62,7 +59,7 @@ export default function HouseholdGuard({
   }, [router]);
 
   useEffect(() => {
-    if (isExemptPath(pathname)) {
+    if (isAuthExemptPath(pathname)) {
       setChecking(false);
       setError(null);
       return;
@@ -84,7 +81,7 @@ export default function HouseholdGuard({
     // above prevents any repeat network work once verified.
   }, [pathname, checkHousehold]);
 
-  if (!isExemptPath(pathname) && checking) {
+  if (!isAuthExemptPath(pathname) && checking) {
     return (
       <main className="flex min-h-screen items-center justify-center px-6">
         <p className="text-sm text-slate-400">Checking household access…</p>
@@ -92,7 +89,7 @@ export default function HouseholdGuard({
     );
   }
 
-  if (!isExemptPath(pathname) && error) {
+  if (!isAuthExemptPath(pathname) && error) {
     return (
       <main className="flex min-h-screen items-center justify-center px-6">
         <section className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-6">
