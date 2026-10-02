@@ -24,10 +24,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { isAuthExemptPath } from "@/lib/auth/exempt-paths";
+import { clearInactivityClock, INACTIVITY_STORAGE_KEY as STORAGE_KEY } from "@/lib/auth/inactivity";
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const THROTTLE_MS = 1000;
-const STORAGE_KEY = "bt:lastActivity";
 const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
   "mousemove",
   "mousedown",
@@ -59,6 +59,12 @@ export default function InactivityLogout() {
       // Even if sign-out fails client-side (e.g. offline), still redirect —
       // middleware will bounce to /login again if a session actually remains.
     } finally {
+      // CRITICAL: clear the stored timestamp before redirecting. Without this,
+      // the next sign-in (same tab or a different one) re-mounts this
+      // component, reads the now-stale "5+ minutes ago" value left behind by
+      // THIS logout, and immediately signs the freshly-logged-in user straight
+      // back out — an infinite logout loop. This was the actual reported bug.
+      clearInactivityClock();
       window.location.href = "/login?reason=inactivity";
     }
   }, []);

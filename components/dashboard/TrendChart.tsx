@@ -5,6 +5,7 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -48,7 +49,20 @@ function TrendTooltip({ active, payload, label }: TooltipProps<number, string>) 
   );
 }
 
-export default function TrendChart({ trend }: { trend: TrendPoint[] }) {
+export default function TrendChart({
+  trend,
+  totalBudgetPence,
+}: {
+  trend: TrendPoint[];
+  /** Sum of all current monthly budgets, or 0 if none are set. Budgets apply
+   * to every month the same way (lib/types.ts: "recurring monthly budget"),
+   * so one flat reference line is historically honest even though it's
+   * drawn against past months. Omitted entirely when there's no budget to
+   * compare against. */
+  totalBudgetPence?: number;
+}) {
+  const showBudgetLine = (totalBudgetPence ?? 0) > 0;
+
   return (
     <Card>
       <CardTitle>12-month trend</CardTitle>
@@ -90,6 +104,20 @@ export default function TrendChart({ trend }: { trend: TrendPoint[] }) {
               strokeWidth={2}
               dot={false}
             />
+            {showBudgetLine && (
+              <ReferenceLine
+                y={totalBudgetPence}
+                stroke="#fbbf24"
+                strokeDasharray="4 4"
+                strokeWidth={1.5}
+                label={{
+                  value: "Budget",
+                  position: "insideTopRight",
+                  fill: "#fbbf24",
+                  fontSize: 11,
+                }}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

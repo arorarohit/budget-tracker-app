@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { Button, Input } from "@/components/ui";
+import { resetInactivityClock } from "@/lib/auth/inactivity";
 
 /** Illustrative category split for the hero panel — not tied to any real
  * account/data (nobody is signed in yet). Mirrors the app's own category
@@ -59,6 +60,14 @@ export default function LoginPage() {
         return;
       }
 
+      // Start the inactivity clock fresh on every successful sign-in —
+      // defense in depth alongside clearing it on sign-out (Nav.tsx,
+      // InactivityLogout.tsx): a brand-new session should never inherit a
+      // stale "last active" timestamp from whatever was in this browser
+      // before, which is what previously caused an immediate re-logout loop
+      // right after signing back in post-inactivity-timeout.
+      resetInactivityClock();
+
       // A hard navigation (not router.replace/refresh) is required here: the
       // Supabase browser client has just written fresh auth cookies, and
       // middleware.ts needs to see them on a brand-new request to redirect
@@ -95,11 +104,16 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-950 lg:flex-row">
-      {/* Hero panel: grounded in the actual product (category breakdown using
-          the same icon/label language as the real Dashboard), not generic
-          decoration. Compact band on mobile, full-height on desktop. */}
-      <section className="flex flex-col justify-between bg-emerald-950 px-8 py-10 lg:w-[44%] lg:px-14 lg:py-16">
-        <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-emerald-50">
+      {/* Hero panel: same dark canvas as the authenticated app (slate-950/900,
+          slate-800 border) with emerald used only as an ACCENT — exactly how
+          the rest of the product uses it (Nav, buttons, positive amounts).
+          Previously this panel filled the background with solid emerald-950,
+          which made the login screen read as a different, greener app from
+          the one you land in after signing in. Grounded in the actual
+          product (category breakdown using the Dashboard's own icon/label
+          language), not generic decoration. */}
+      <section className="flex flex-col justify-between border-b border-slate-800 bg-slate-900/60 px-8 py-10 lg:w-[44%] lg:border-b-0 lg:border-r lg:px-14 lg:py-16">
+        <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-white">
           <span aria-hidden>💷</span> Budget Tracker
         </div>
 
@@ -107,7 +121,7 @@ export default function LoginPage() {
           <h1 className="max-w-sm text-3xl font-bold leading-tight tracking-tight text-white lg:text-4xl">
             Know where every pound goes.
           </h1>
-          <p className="mt-4 max-w-sm text-sm leading-6 text-emerald-200/80">
+          <p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">
             One shared view of your household&apos;s accounts, budgets, and bank
             statements — built for the UK.
           </p>
@@ -116,12 +130,12 @@ export default function LoginPage() {
             {HERO_CATEGORIES.map((c) => (
               <div key={c.name} className="flex items-center gap-3">
                 <span className="w-6 text-center text-base">{c.icon}</span>
-                <span className="w-32 shrink-0 text-xs text-emerald-200/70">
+                <span className="w-32 shrink-0 text-xs text-slate-400">
                   {c.name}
                 </span>
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-emerald-900/60">
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
                   <span
-                    className="block h-full rounded-full bg-emerald-400/80"
+                    className="block h-full rounded-full bg-emerald-500"
                     style={{ width: `${c.widthPct}%` }}
                   />
                 </span>
@@ -130,7 +144,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="hidden text-xs text-emerald-200/50 lg:block">
+        <p className="hidden text-xs text-slate-500 lg:block">
           Bank-grade security · your data stays within your household
         </p>
       </section>

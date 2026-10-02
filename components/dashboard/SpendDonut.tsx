@@ -5,6 +5,33 @@ import { Card, CardTitle, EmptyState } from "@/components/ui";
 import { formatPence, formatPenceAbs } from "@/lib/format";
 import type { CategorySpend } from "@/lib/types";
 
+const MAX_PIE_SLICES = 5;
+const OTHER_COLOR = "#64748b";
+
+/** Collapse everything past the top N categories into a single "Other" slice
+ * for the PIE ONLY — a wheel with 8+ thin slices is decorative, nobody can
+ * rank 8 colors by eye. The legend list below stays fully detailed and
+ * individually ranked, since that's where the real category-by-category
+ * read happens; the chart's job is just "where does most of it go". */
+function buildPieSlices(
+  sorted: CategorySpend[]
+): Array<{ key: string; name: string; color: string; spendPence: number }> {
+  const top = sorted.slice(0, MAX_PIE_SLICES);
+  const rest = sorted.slice(MAX_PIE_SLICES);
+  const otherTotal = rest.reduce((sum, c) => sum + c.spendPence, 0);
+
+  const slices = top.map((c) => ({
+    key: c.categoryId ?? "uncategorized",
+    name: c.name,
+    color: c.color,
+    spendPence: c.spendPence,
+  }));
+  if (otherTotal > 0) {
+    slices.push({ key: "__other__", name: "Other", color: OTHER_COLOR, spendPence: otherTotal });
+  }
+  return slices;
+}
+
 export default function SpendDonut({
   byCategory,
   totalSpendPence,
@@ -12,12 +39,14 @@ export default function SpendDonut({
   byCategory: CategorySpend[];
   totalSpendPence: number;
 }) {
-  const slices = byCategory.filter((c) => c.spendPence > 0);
+  // byCategory already arrives sorted desc by spendPence (see lib/stats.ts).
+  const ranked = byCategory.filter((c) => c.spendPence > 0);
+  const pieSlices = buildPieSlices(ranked);
 
   return (
     <Card>
       <CardTitle>Spending by category</CardTitle>
-      {slices.length === 0 ? (
+      {ranked.length === 0 ? (
         <EmptyState icon="🥧" title="No spending this month" />
       ) : (
         <div className="flex flex-col items-center gap-6 sm:flex-row">
@@ -25,7 +54,7 @@ export default function SpendDonut({
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={slices}
+                  data={pieSlices}
                   dataKey="spendPence"
                   nameKey="name"
                   innerRadius="60%"
@@ -33,8 +62,8 @@ export default function SpendDonut({
                   paddingAngle={1}
                   stroke="none"
                 >
-                  {slices.map((s) => (
-                    <Cell key={s.categoryId ?? "uncategorized"} fill={s.color} />
+                  {pieSlices.map((s) => (
+                    <Cell key={s.key} fill={s.color} />
                   ))}
                 </Pie>
               </PieChart>
@@ -49,8 +78,10 @@ export default function SpendDonut({
             </div>
           </div>
 
+          {/* Full ranked list, every category individually — this is the part
+              that actually communicates, the pie just orients at a glance. */}
           <ul className="w-full space-y-2 sm:w-1/2">
-            {slices.map((s) => {
+            {ranked.map((s) => {
               const share =
                 totalSpendPence > 0
                   ? Math.round((s.spendPence / totalSpendPence) * 100)

@@ -387,4 +387,15 @@ export interface StatsResponse {
   byCategory: CategorySpend[]; // selected month, spend side, sorted desc, incl. Uncategorised slice
   budgets: BudgetProgress[]; // every category that has a budget
   trend: TrendPoint[]; // last 12 months ending at selected month
+  /**
+   * ISO "yyyy-MM-dd" date of the most recently dated transaction across the
+   * WHOLE household (any month, any account) — not just the selected month.
+   * null when the household has no transactions at all yet. This app is
+   * statement-import driven (no live bank feed), so "days since last import"
+   * is the honest signal for whether in-month budget pacing is trustworthy:
+   * a user who imports weekly sees fresh pacing; a user who hasn't imported
+   * in 3 weeks should be told their data is stale, not shown a misleadingly
+   * low "spent so far" figure that implies they're under budget.
+   */
+  lastTransactionDate: string | null;
 }

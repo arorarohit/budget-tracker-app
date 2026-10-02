@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { Button, Card, CardTitle, EmptyState } from "@/components/ui";
 import { formatPenceAbs } from "@/lib/format";
 import type { BudgetProgress } from "@/lib/types";
+
+/** How close a budget is to (or past) its limit, as a fraction — can exceed 1
+ * when over budget. Used only for ranking, never displayed directly. */
+function usageRatio(b: BudgetProgress): number {
+  return b.budgetPence > 0 ? b.spentPence / b.budgetPence : b.spentPence > 0 ? Infinity : 0;
+}
 
 function BudgetRow({ b }: { b: BudgetProgress }) {
   const over = b.spentPence > b.budgetPence;
@@ -48,6 +55,14 @@ export default function BudgetBars({ budgets }: { budgets: BudgetProgress[] }) {
   const totalSpent = budgets.reduce((s, b) => s + b.spentPence, 0);
   const totalOver = totalSpent > totalBudgeted;
 
+  // Ranked by urgency (most over/closest to limit first), not alphabetically
+  // — the categories that need a decision should be the first thing a user
+  // sees, not buried wherever their name happens to fall in the alphabet.
+  const rankedBudgets = useMemo(
+    () => [...budgets].sort((a, b) => usageRatio(b) - usageRatio(a)),
+    [budgets]
+  );
+
   return (
     <Card>
       <CardTitle>Budgets</CardTitle>
@@ -65,7 +80,7 @@ export default function BudgetBars({ budgets }: { budgets: BudgetProgress[] }) {
       ) : (
         <>
           <ul className="space-y-3">
-            {budgets.map((b) => (
+            {rankedBudgets.map((b) => (
               <BudgetRow key={b.categoryId} b={b} />
             ))}
           </ul>

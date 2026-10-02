@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { clearInactivityClock } from "@/lib/auth/inactivity";
 
 const LINKS = [
   { href: "/", label: "Dashboard", icon: "📊" },
@@ -57,6 +58,10 @@ export default function Nav() {
           );
           const supabase = createSupabaseBrowserClient();
           await supabase.auth.signOut();
+          // Clear the inactivity clock so the next sign-in (this tab or any
+          // other) doesn't inherit a stale "last active" timestamp and get
+          // immediately signed out again by InactivityLogout on mount.
+          clearInactivityClock();
           window.location.href = "/login";
         }}
         className="mt-8 w-full rounded-lg px-3 py-2 text-left text-sm text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"

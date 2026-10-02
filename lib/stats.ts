@@ -122,6 +122,19 @@ export async function computeStats(
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // Most recent transaction across the WHOLE household (not scoped to the
+  // selected month) — this app is statement-import driven, so "how long ago
+  // was the last import" is the honest freshness signal the Dashboard uses
+  // to decide whether in-month budget pacing is trustworthy to show.
+  const lastTransaction = await tx.transaction.findFirst({
+    where: { householdId },
+    orderBy: { date: "desc" },
+    select: { date: true },
+  });
+  const lastTransactionDate = lastTransaction
+    ? lastTransaction.date.toISOString().slice(0, 10)
+    : null;
+
   const trendStart = new Date(Date.UTC(year, mon - 1 - 11, 1));
   const trendEnd = monthEnd;
 
@@ -169,5 +182,6 @@ export async function computeStats(
     byCategory,
     budgets,
     trend,
+    lastTransactionDate,
   };
 }

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui";
 import type { StatsResponse } from "@/lib/types";
 import { useStats } from "@/lib/hooks/useStats";
+import NeedsAttention from "@/components/dashboard/NeedsAttention";
 import StatCards from "@/components/dashboard/StatCards";
 import SpendDonut from "@/components/dashboard/SpendDonut";
 import TrendChart from "@/components/dashboard/TrendChart";
@@ -97,6 +98,9 @@ export default function DashboardClient({
           </Card>
         ) : (
           <div className="space-y-6">
+            {/* The one thing to read first: what, if anything, needs a
+                decision — ahead of the passive totals/charts below. */}
+            <NeedsAttention stats={stats} />
             <StatCards stats={stats} />
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
               <SpendDonut
@@ -105,7 +109,10 @@ export default function DashboardClient({
               />
               <BudgetBars budgets={stats.budgets} />
             </div>
-            <TrendChart trend={stats.trend} />
+            <TrendChart
+              trend={stats.trend}
+              totalBudgetPence={stats.budgets.reduce((s, b) => s + b.budgetPence, 0)}
+            />
           </div>
         )
       )}
