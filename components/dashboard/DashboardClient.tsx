@@ -102,7 +102,15 @@ export default function DashboardClient({
                 decision — ahead of the passive totals/charts below. */}
             <NeedsAttention stats={stats} />
             <StatCards stats={stats} />
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            {/* lg (1024px), not xl (1280px): iPad landscape is exactly 1024px,
+                and with the sidebar + padding there's still ~700px of content
+                width there — comfortably enough for two charts side by side,
+                so iPad landscape no longer renders identically to a phone.
+                iPad portrait (768px) still correctly gets one column, since
+                that's genuinely too narrow for two charts next to the
+                sidebar. Laptop/desktop behaviour at lg+ is unchanged from
+                before (xl was already ≤ lg-and-up territory). */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <SpendDonut
                 byCategory={stats.byCategory}
                 totalSpendPence={stats.totalSpendPence}

@@ -141,7 +141,9 @@ export default function CategoryCombobox({
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
-        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+        // See components/ui.tsx TOUCH_TARGET: pointer:coarse-only touch target
+        // bump, doesn't affect mouse/trackpad use regardless of screen width.
+        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 [@media(pointer:coarse)]:min-h-[2.75rem]"
       />
       {open && (
         <ul
@@ -162,7 +164,7 @@ export default function CategoryCombobox({
                   selectOption(opt.id);
                 }}
                 onMouseEnter={() => setHighlight(i)}
-                className={`cursor-pointer px-3 py-1.5 text-sm ${
+                className={`cursor-pointer px-3 py-1.5 text-sm [@media(pointer:coarse)]:min-h-[2.75rem] [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:items-center ${
                   i === highlight
                     ? "bg-emerald-600/20 text-emerald-300"
                     : "text-slate-200 hover:bg-slate-800"

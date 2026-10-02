@@ -153,7 +153,85 @@ export default function PreviewTable({
         )}
       </Card>
 
-      <Card className="overflow-x-auto p-0">
+      {/* Phone layout: one card per row, no horizontal scrolling through a
+          5-column table on a narrow screen. Same per-row state/handlers as
+          the table below — only the markup differs. */}
+      <ul className="space-y-2 sm:hidden">
+        {preview.rows.map((row, i) => {
+          const state = rowStates[i];
+          const selectedCategoryId = state?.categoryName
+            ? categories.find((c) => c.name === state.categoryName)?.id ??
+              UNCATEGORISED
+            : UNCATEGORISED;
+          const out = row.amountPence < 0;
+          const excluded = excludedRows.has(i);
+          return (
+            <li
+              key={i}
+              className={`rounded-xl border border-slate-800 bg-slate-900/60 p-3 ${
+                row.duplicate || excluded ? "opacity-50" : ""
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-200">{row.merchant}</div>
+                  {row.merchant !== row.description && (
+                    <div className="truncate text-xs text-slate-500">
+                      {row.description}
+                    </div>
+                  )}
+                  <div className="mt-0.5 text-xs text-slate-500">{formatDate(row.date)}</div>
+                </div>
+                <div
+                  className={`shrink-0 font-medium tabular-nums ${
+                    out ? "text-red-400" : "text-emerald-400"
+                  }`}
+                >
+                  {formatPence(row.amountPence)}
+                </div>
+              </div>
+
+              <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-800/60 pt-2.5">
+                <div className="min-w-0 flex-1">
+                  {row.duplicate ? (
+                    <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800/60 px-2.5 py-0.5 text-xs font-medium text-slate-400">
+                      Duplicate
+                    </span>
+                  ) : excluded ? (
+                    <span className="text-xs font-medium text-slate-500">
+                      Not importing
+                    </span>
+                  ) : !catsLoaded ? (
+                    <Spinner />
+                  ) : (
+                    <CategoryCombobox
+                      categories={categories}
+                      value={selectedCategoryId}
+                      onChange={(categoryId) => onPickCategory(i, categoryId)}
+                      uncategorizedLabel="Uncategorised"
+                      aria-label={`Category for ${row.description}`}
+                      className="w-full"
+                    />
+                  )}
+                </div>
+                {!row.duplicate && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => toggleExcluded(i)}
+                    aria-label={`${excluded ? "Include" : "Exclude"} ${row.description}`}
+                    className="shrink-0 min-h-[2.75rem]"
+                  >
+                    {excluded ? "Include" : "Exclude"}
+                  </Button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* sm and above: unchanged original table. */}
+      <Card className="hidden overflow-x-auto p-0 sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">

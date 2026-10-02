@@ -46,7 +46,11 @@ export default function CategoryPicker({
         onChange(v === UNCATEGORIZED_VALUE ? null : v);
       }}
       aria-label="Category"
-      className="max-w-[10rem] truncate rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1 text-xs text-slate-200 outline-none transition-colors hover:border-slate-600 focus:border-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+      // [@media(pointer:coarse)] bumps min-height toward the ~44px touch
+      // target minimum on phone/iPad specifically (not by viewport width),
+      // leaving the compact mouse/trackpad sizing (~26px) unchanged elsewhere
+      // — see components/ui.tsx TOUCH_TARGET for the full rationale.
+      className="max-w-[10rem] truncate rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1 text-xs text-slate-200 outline-none transition-colors hover:border-slate-600 focus:border-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 [@media(pointer:coarse)]:min-h-[2.75rem]"
       style={current ? { color: current.color } : undefined}
     >
       <option value={UNCATEGORIZED_VALUE}>❓ Uncategorised</option>

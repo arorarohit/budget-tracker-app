@@ -61,6 +61,16 @@ const BUTTON_STYLES: Record<ButtonVariant, string> = {
     "bg-transparent hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-transparent disabled:opacity-50",
 };
 
+// Touch target sizing (Phase 4): uses the `pointer: coarse` media feature,
+// not a width breakpoint — this is the CORRECT way to target "has a finger,
+// not a mouse pointer", since it fires on phone and iPad regardless of how
+// wide the viewport is, but correctly leaves a touchscreen laptop (which also
+// has a precise trackpad/mouse — `pointer: fine` wins) and a narrow desktop
+// window untouched. ~44px is the Apple HIG / Material minimum recommended
+// touch target; the existing compact py-1.5 sizing (~30px) is kept as the
+// default for fine-pointer (mouse/trackpad) use, unchanged from before.
+const TOUCH_TARGET = "[@media(pointer:coarse)]:min-h-[2.75rem] [@media(pointer:coarse)]:py-2.5";
+
 export function Button({
   variant = "secondary",
   className = "",
@@ -70,7 +80,7 @@ export function Button({
 }) {
   return (
     <button
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${BUTTON_STYLES[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${TOUCH_TARGET} ${BUTTON_STYLES[variant]} ${className}`}
       {...props}
     />
   );
@@ -82,7 +92,7 @@ export function Input({
 }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-600 ${className}`}
+      className={`rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-600 ${TOUCH_TARGET} ${className}`}
       {...props}
     />
   );
@@ -94,7 +104,7 @@ export function Select({
 }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className={`rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-100 outline-none focus:border-emerald-600 ${className}`}
+      className={`rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-100 outline-none focus:border-emerald-600 ${TOUCH_TARGET} ${className}`}
       {...props}
     />
   );
